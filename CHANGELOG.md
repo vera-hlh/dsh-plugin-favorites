@@ -2,6 +2,12 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-11-24
+
+### Fixed
+
+- `cordis.patch.yml` still named the pre-rename package (`@local/dsh-plugin-favorites`), so an installation from the registry could not load the plugin row. The patch now names `dsh-plugin-favorites`.
+
 ## [1.0.1] - 2026-11-24
 
 ### Changed
