@@ -2,12 +2,11 @@
  * Client half of the Favorites bundle.
  *
  * Surfaces:
- *  - `conversation.chat.assistant-actions`  a bookmark toggle on every finalized
- *    assistant message;
- *  - `conversation.chat.turnTail`           a quiet bookmark on every completed
- *    Turn, which also covers the user's own prompt;
- *  - `shell.overlay`                        the editor dialog and its toast;
- *  - `sidebar.panellist` + `main`           the cross-Session panel.
+ *  - `conversation.chat.assistant-actions`  a bookmark toggle on every assistant
+ *    message (three states: plain, saved as part of a turn, saved);
+ *  - `shell.overlay`                        the selection pill, the editor dialog,
+ *    the jump highlight, and toasts;
+ *  - `sidebar.panellist` + `main`           the cross-Session favorites panel.
  *
  * Bookmarks are this browser's own data: they never enter the Session log, the
  * model context, or the provider cache. Quoting uses the public Session binding
@@ -15,7 +14,7 @@
  * plugin's DOM.
  */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-plugin-favorites',
+  id: 'dsh-plugin-favorites',
   factory(require) {
     'use strict';
 

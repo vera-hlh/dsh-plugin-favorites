@@ -2,6 +2,12 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-11-24
+
+### Fixed
+
+- `client.js` registered its module under the pre-rename id (`@local/dsh-plugin-favorites`), so the Web half never matched the installed package: no bookmark buttons, no selection pill, no Favorites panel, while the Host half kept working. The module id is now `dsh-plugin-favorites`.
+
 ## [1.0.2] - 2026-11-24
 
 ### Fixed
