@@ -1,0 +1,3 @@
+- insert:
+    - id: plugin-favorites
+      name: '@local/dsh-plugin-favorites'

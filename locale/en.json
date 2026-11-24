@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Favorites",
+    "description": "Bookmark a reply, a whole turn, selected text, or a file, add tags and a note, then jump back later. Add one from the bookmark icon under any reply, the Add to favorites pill that appears after selecting text, or the Favorites panel in the left sidebar. A jump scrolls to the saved text and highlights it, and keeps correcting itself after history pages or a window resize. Everything is stored locally in the profile's data folder; nothing is sent anywhere. Turn bookmarks created before 1.0.0 stored no prompt text, so their jump may land on the reply instead of the prompt.",
+    "detail": "docs/DETAIL.md"
+  }
+}

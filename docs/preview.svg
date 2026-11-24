@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300">
+  <rect width="640" height="300" rx="20" fill="#f3f5f9"/>
+
+  <!-- favorites panel -->
+  <rect x="32" y="26" width="208" height="248" rx="14" fill="#ffffff" stroke="#dbe2ea" stroke-width="1.5"/>
+  <rect x="52" y="46" width="72" height="9" rx="4.5" fill="#c9d3df"/>
+  <rect x="52" y="66" width="46" height="16" rx="8" fill="#247bbf"/>
+  <rect x="106" y="66" width="36" height="16" rx="8" fill="#eef2f7" stroke="#dbe2ea"/>
+  <rect x="150" y="66" width="36" height="16" rx="8" fill="#eef2f7" stroke="#dbe2ea"/>
+
+  <!-- selected card -->
+  <rect x="48" y="96" width="176" height="52" rx="9" fill="#f4f8fd" stroke="#bcd3ea"/>
+  <rect x="48" y="96" width="3.5" height="52" rx="1.75" fill="#247bbf"/>
+  <rect x="60" y="108" width="122" height="7" rx="3.5" fill="#c2cddb"/>
+  <rect x="60" y="122" width="86" height="6" rx="3" fill="#dbe2ea"/>
+  <rect x="60" y="134" width="34" height="8" rx="4" fill="#eadfc4"/>
+  <rect x="100" y="134" width="26" height="8" rx="4" fill="#dde4ec"/>
+
+  <!-- other cards -->
+  <rect x="48" y="156" width="176" height="52" rx="9" fill="#fbfcfe" stroke="#e3e9f0"/>
+  <rect x="60" y="168" width="104" height="7" rx="3.5" fill="#dde4ec"/>
+  <rect x="60" y="182" width="72" height="6" rx="3" fill="#e8edf3"/>
+  <rect x="60" y="194" width="30" height="8" rx="4" fill="#e8edf3"/>
+
+  <rect x="48" y="216" width="176" height="46" rx="9" fill="#fbfcfe" stroke="#e3e9f0"/>
+  <rect x="60" y="228" width="96" height="7" rx="3.5" fill="#dde4ec"/>
+  <rect x="60" y="242" width="60" height="6" rx="3" fill="#e8edf3"/>
+
+  <!-- transcript -->
+  <rect x="288" y="40" width="150" height="9" rx="4.5" fill="#d6dde7"/>
+  <rect x="288" y="60" width="300" height="7" rx="3.5" fill="#e2e8ef"/>
+  <rect x="288" y="76" width="268" height="7" rx="3.5" fill="#e9eef4"/>
+  <rect x="288" y="92" width="292" height="7" rx="3.5" fill="#e9eef4"/>
+
+  <!-- highlighted target -->
+  <rect x="282" y="116" width="212" height="24" rx="5" fill="#f6dfb4"/>
+  <rect x="292" y="124" width="180" height="7" rx="3.5" fill="#c79a4c"/>
+
+  <rect x="288" y="150" width="266" height="7" rx="3.5" fill="#e9eef4"/>
+  <rect x="288" y="166" width="232" height="7" rx="3.5" fill="#e9eef4"/>
+
+  <!-- bookmark action row -->
+  <path d="M292 190h14v16l-7-5-7 5z" fill="#247bbf"/>
+  <circle cx="322" cy="197" r="4" fill="#dbe2ea"/>
+  <circle cx="342" cy="197" r="4" fill="#dbe2ea"/>
+  <circle cx="362" cy="197" r="4" fill="#dbe2ea"/>
+
+  <rect x="288" y="222" width="120" height="9" rx="4.5" fill="#d6dde7"/>
+  <rect x="288" y="242" width="286" height="7" rx="3.5" fill="#e9eef4"/>
+
+  <!-- jump arrow: card -> highlight -->
+  <path d="M232 122c18 0 26 10 44 10" fill="none" stroke="#247bbf" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 6"/>
+  <path d="M270 126l10 6-10 6z" fill="#247bbf"/>
+</svg>
