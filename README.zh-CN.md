@@ -51,9 +51,21 @@
 
 本包是 DSH bundle：没有依赖、没有安装脚本、不需要构建。
 
-1. 下载或克隆本仓库；
-2. 在 DSH 中打开「插件」，添加这个包（选择包目录，或在支持 registry 的版本里直接安装包名），然后启用；
-3. 重启一次 DSH，让前端 bundle 加载。
+**从 npm 安装（用 `dsh` CLI，需要 Node.js ≥ 24.9）**：
+
+```powershell
+npx @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile desktop add dsh-plugin-favorites
+```
+
+把 `desktop` 换成你实际使用的 profile 名。命令会把包装进该 profile；装完重启一次 DSH，让前端 bundle 加载。
+
+**从本地目录安装**（开发时更方便）：
+
+```powershell
+git clone https://github.com/vera-hlh/dsh-plugin-favorites.git
+```
+
+然后在 DSH 打开「插件」，把克隆下来的目录添加为插件、启用，并重启一次。以链接方式安装时，改动源码后下次重载即生效。
 
 需要带 Web 客户端的 DSH（`@deepseek-ai/dsh-client-ui-conversation`、`-sidebar`、`-layout`）；插件会注册到回复操作行、左侧栏和浮层。
 

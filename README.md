@@ -49,9 +49,21 @@ Besides transcript bookmarks, the panel can hold file bookmarks: a path with an 
 
 The package is a DSH bundle: no dependencies, no install scripts, nothing to build.
 
-1. Download or clone this repository.
-2. In DSH open **Plugins**, add this package (choose the package directory, or install the package name when your build resolves registry packages), then enable it.
-3. Restart DSH once so the client bundle loads.
+**From npm, with the `dsh` CLI** (Node.js ≥ 24.9):
+
+```powershell
+npx @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile desktop add dsh-plugin-favorites
+```
+
+Replace `desktop` with your profile name. The command installs the package into that profile; restart DSH once so the client bundle loads.
+
+**From a local checkout** (useful for development):
+
+```powershell
+git clone https://github.com/vera-hlh/dsh-plugin-favorites.git
+```
+
+Then open **Plugins** in DSH, add the cloned folder as a plugin, enable it, and restart once. A linked folder applies source edits on the next reload.
 
 The plugin needs DSH with the Web client (`@deepseek-ai/dsh-client-ui-conversation`, `-sidebar`, `-layout`); it registers into the conversation action row, the sidebar, and the overlay layer.
 

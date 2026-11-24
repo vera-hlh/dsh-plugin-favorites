@@ -2,6 +2,12 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-24
+
+### Changed
+
+- README (English and Chinese): replaced the descriptive install section with the verified `dsh plugin --profile <name> add dsh-plugin-favorites` command and the local-checkout path.
+
 ## [1.0.0] - 2026-11-24
 
 First public release. The package was developed privately before this point, so this entry describes the complete initial feature set.
