@@ -74,6 +74,8 @@ git clone https://github.com/vera-hlh/dsh-plugin-favorites.git
 - 收藏保存在 `<DSH_HOME>/profiles/<profile>/data/favorites.json`，每次写入前会生成 `favorites.backup.json`。
 - 浏览器端在 `localStorage` 里保留一份镜像，加载时与文件合并。
 - 全部数据只在本机：插件不发任何网络请求，收藏内容也不会自动进入模型上下文。
+- 面板里的**导出 / 导入**用于跨机器搬运：导出写一个 JSON 文件，导入会合并（同 id 保留较新的修改，新 id 直接加入）。
+- HTTP 接口只响应 DSH 自己的页面（同源，或桌面版的 dsh-app:// 外壳），其它网页无法读写这些数据。
 - 数据按 profile 存放，切换 profile 就是另一套收藏。
 
 ## 已知限制

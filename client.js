@@ -95,6 +95,12 @@ window.__ModuleLoader__.load({
         'toast.copyFailed': '复制失败。',
         'panel.kind.file': '文件',
         'panel.addFile': '收藏文件',
+      'panel.export': '导出',
+      'panel.import': '导入',
+      'toast.exported': '已导出收藏文件。',
+      'toast.exportFailed': '导出失败：宿主接口不可用。',
+      'toast.imported': '导入完成：新增 {added} 条，更新 {updated} 条。',
+      'toast.importFailed': '导入失败：文件格式不对或宿主接口不可用。',
         'panel.group.none': '未标注工作区',
         'panel.filter.session': '只看本会话',
         'panel.filter.cancel': '取消筛选',
@@ -180,6 +186,12 @@ window.__ModuleLoader__.load({
         'toast.copyFailed': 'Could not copy.',
         'panel.kind.file': 'File',
         'panel.addFile': 'Save a file',
+      'panel.export': 'Export',
+      'panel.import': 'Import',
+      'toast.exported': 'Favorites exported.',
+      'toast.exportFailed': 'Export failed: the host route is unavailable.',
+      'toast.imported': 'Imported: {added} added, {updated} updated.',
+      'toast.importFailed': 'Import failed: unexpected file or the host route is unavailable.',
         'panel.group.none': 'No workspace recorded',
         'panel.filter.session': 'This session only',
         'panel.filter.cancel': 'Clear filter',
@@ -934,6 +946,46 @@ window.__ModuleLoader__.load({
         if (state.pill) setState({ pill: null });
       }
 
+      async function exportFavorites() {
+        try {
+          const data = await hostJson('/export');
+          if (!data || !Array.isArray(data.items)) throw new Error('export-empty');
+          const payload = JSON.stringify({ version: 1, exportedAt: data.exportedAt || new Date().toISOString(), items: data.items }, null, 2);
+          const blob = new Blob([payload], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'dsh-favorites-' + new Date().toISOString().slice(0, 10) + '.json';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 2000);
+          showToast(t('toast.exported'));
+          return true;
+        } catch (err) {
+          showToast(t('toast.exportFailed'));
+          return false;
+        }
+      }
+
+      async function importFavorites(file) {
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const incoming = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.items) ? parsed.items : [];
+          if (!incoming.length) throw new Error('empty');
+          const data = await hostCall('/import', { items: incoming });
+          setState({ items: data.items });
+          showToast(t('toast.imported', { added: data.added || 0, updated: data.updated || 0 }));
+          return true;
+        } catch (err) {
+          showToast(t('toast.importFailed'));
+          return false;
+        }
+      }
+
       function setHighlightRects(rects) {
         const next = Array.isArray(rects) ? rects : [];
         const current = state.highlight && state.highlight.rects ? state.highlight.rects : [];
@@ -973,13 +1025,14 @@ window.__ModuleLoader__.load({
         factsFor: factsFor,
         factsForPath: factsForPath,
         patchWorkspace: patchWorkspace,
-        showToast: showToast,
         requestReveal: requestReveal,
         consumeReveal: consumeReveal,
         markRevealHandled: markRevealHandled,
         captureMessage: captureMessage,
         openMessageEditor: openMessageEditor,
         openExcerptDraft: openExcerptDraft,
+        exportFavorites: exportFavorites,
+        importFavorites: importFavorites,
         showToast: showToast,
         hideToast: hideToast,
         setPill: setPill,
@@ -2631,6 +2684,7 @@ window.__ModuleLoader__.load({
 
     function FavoritesPanel(props) {
       const snapshot = useStore();
+      const importRef = useRef(null);
       const [query, setQuery] = useState('');
       const [tag, setTag] = useState(null);
       const [kind, setKind] = useState('all');
@@ -2810,6 +2864,39 @@ window.__ModuleLoader__.load({
               },
               t('panel.addFile'),
             ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshfav-btn',
+                onClick: function () {
+                  void store.exportFavorites();
+                },
+              },
+              t('panel.export'),
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                className: 'dshfav-btn',
+                onClick: function () {
+                  if (importRef.current) importRef.current.click();
+                },
+              },
+              t('panel.import'),
+            ),
+            h('input', {
+              ref: importRef,
+              type: 'file',
+              accept: 'application/json,.json',
+              style: { display: 'none' },
+              onChange: function (event) {
+                const file = event.target.files && event.target.files[0];
+                event.target.value = '';
+                if (file) void store.importFavorites(file);
+              },
+            }),
           ),
           sessionFilter || workspaceFilter
             ? h(

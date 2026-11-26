@@ -72,6 +72,8 @@ The plugin needs DSH with the Web client (`@deepseek-ai/dsh-client-ui-conversati
 - Bookmarks are stored as JSON at `<DSH_HOME>/profiles/<profile>/data/favorites.json`, with `favorites.backup.json` written before each save.
 - The browser keeps a mirror in `localStorage` and merges it with the file on load.
 - Everything stays on this machine: the plugin makes no network requests, and bookmarks never enter any model context by themselves.
+- **Export / import** in the panel moves bookmarks between machines: export writes a JSON file, import merges it (same id keeps the newer edit, unknown ids are added).
+- The HTTP routes only answer DSH's own page (same origin, or the dsh-app:// desktop shell); a foreign web page cannot read or change the data.
 - Because the store is per profile, switching profiles means a different set of bookmarks.
 
 ## Limitations

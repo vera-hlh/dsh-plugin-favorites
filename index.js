@@ -100,13 +100,32 @@ const corsFor = new WeakMap();
    fetch the Client makes to these routes is cross-origin and carries a
    preflight. Allow exactly that origin family (and loopback) instead of
    answering the preflight with 403. */
+/* Requests must come from DSH's own page: the desktop webview uses the
+   dsh-app:// origin, the Web GUI is same-origin with this server. A foreign
+   page is rejected before it can read or change the profile data. */
+function requestHost(req) {
+  const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+  return String(host).toLowerCase();
+}
+
+function sameOrigin(req) {
+  const origin = req.headers.origin;
+  if (typeof origin !== 'string' || !origin) return true;
+  if (/^dsh-app:\/\//i.test(origin)) return true;
+  try {
+    return new URL(origin).host.toLowerCase() === requestHost(req);
+  } catch (err) {
+    return false;
+  }
+}
+
+/* Answer the CORS preflight only for an accepted origin, and reject anything
+   that a foreign page could have sent. */
 function admit(req, res) {
   const origin = req.headers.origin;
-  const allowed =
-    typeof origin === 'string' &&
-    (/^dsh-app:\/\//i.test(origin) || /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin));
-  if (allowed) corsFor.set(res, origin);
-  return req.method === 'OPTIONS';
+  if (!sameOrigin(req)) return false;
+  if (typeof origin === 'string' && origin) corsFor.set(res, origin);
+  return true;
 }
 
 function send(res, status, body) {
@@ -145,6 +164,11 @@ function readBody(req) {
 
 function authorized(req) {
   return req.headers['x-dsh-favorites'] === '1';
+}
+
+function isJsonRequest(req) {
+  const type = String(req.headers['content-type'] || '').toLowerCase();
+  return type.indexOf('application/json') >= 0;
 }
 
 function queryValue(req, name) {
@@ -325,9 +349,9 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/list',
     handler: async (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'GET') return send(res, 405, { error: 'method-not-allowed' });
       try {
         const current = await serialize(loadItems);
@@ -345,10 +369,11 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/remove',
     handler: async (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' });
+      if (!isJsonRequest(req)) return send(res, 415, { error: 'json-required' });
       try {
         const parsed = JSON.parse((await readBody(req)) || '{}');
         const id = typeof parsed.id === 'string' ? parsed.id : '';
@@ -367,10 +392,11 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/save',
     handler: async (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' });
+      if (!isJsonRequest(req)) return send(res, 415, { error: 'json-required' });
       try {
         const parsed = JSON.parse((await readBody(req)) || '{}');
         const stored = await serialize(() => storeItems(parsed.items));
@@ -385,9 +411,9 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/context',
     handler: async (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'GET') return send(res, 405, { error: 'method-not-allowed' });
       const sessionId = queryValue(req, 'sessionId');
       const filePath = queryValue(req, 'path');
@@ -406,9 +432,9 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/workspaces',
     handler: (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'GET') return send(res, 405, { error: 'method-not-allowed' });
       const registry = ctx.get('workspaceRegistry');
       let workspaces = [];
@@ -431,9 +457,9 @@ export function apply(ctx) {
     kind: 'exact',
     path: BASE + '/file',
     handler: async (req, res) => {
-      if (admit(req, res)) return send(res, 204, null);
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
       if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
-      if (req.method === 'OPTIONS') return send(res, 403, { error: 'forbidden' });
       if (req.method !== 'GET') return send(res, 405, { error: 'method-not-allowed' });
       const id = queryValue(req, 'id');
       const current = await serialize(loadItems);
@@ -460,8 +486,67 @@ export function apply(ctx) {
     },
   });
 
+  const disposeExport = ctx.webServer.register({
+    kind: 'exact',
+    path: BASE + '/export',
+    handler: async (req, res) => {
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
+      if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
+      if (req.method !== 'GET') return send(res, 405, { error: 'method-not-allowed' });
+      try {
+        const current = await serialize(() => loadItems());
+        return send(res, 200, { version: 1, exportedAt: new Date().toISOString(), items: current });
+      } catch (err) {
+        return send(res, 500, { error: 'export-failed' });
+      }
+    },
+  });
+
+  const disposeImport = ctx.webServer.register({
+    kind: 'exact',
+    path: BASE + '/import',
+    handler: async (req, res) => {
+      if (!admit(req, res)) return send(res, 403, { error: 'origin' });
+      if (req.method === 'OPTIONS') return send(res, 204, null);
+      if (!authorized(req)) return send(res, 403, { error: 'forbidden' });
+      if (req.method !== 'POST') return send(res, 405, { error: 'method-not-allowed' });
+      if (!isJsonRequest(req)) return send(res, 415, { error: 'json-required' });
+      try {
+        const parsed = JSON.parse((await readBody(req)) || '{}');
+        const incoming = sanitizeList(parsed.items);
+        if (!incoming.length) return send(res, 400, { error: 'empty-import' });
+        const current = await serialize(() => loadItems());
+        const byId = new Map(current.map((item) => [item.id, item]));
+        let added = 0;
+        let updated = 0;
+        let skipped = 0;
+        for (const item of incoming) {
+          const existing = byId.get(item.id);
+          if (!existing) {
+            byId.set(item.id, item);
+            added += 1;
+            continue;
+          }
+          const previous = Number(existing.updatedAt) || 0;
+          const next = Number(item.updatedAt) || 0;
+          if (next > previous) {
+            byId.set(item.id, item);
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        }
+        if (added || updated) await serialize(() => storeItems(Array.from(byId.values())));
+        const stored = await serialize(() => loadItems());
+        return send(res, 200, { items: stored, added, updated, skipped });
+      } catch (err) {
+        return send(res, 400, { error: 'import-failed', message: String(err && err.message ? err.message : err) });
+      }
+    },
+  });
   ctx.effect(() => () => {
-    for (const dispose of [disposeList, disposeSave, disposeRemove, disposeContext, disposeWorkspaces, disposeFile]) {
+    for (const dispose of [disposeList, disposeSave, disposeRemove, disposeContext, disposeWorkspaces, disposeFile, disposeExport, disposeImport]) {
       try {
         dispose();
       } catch (err) {

@@ -2,6 +2,16 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-11-27
+
+### Added
+
+- **Export / import** in the favorites panel: export writes every bookmark to a JSON file, import merges a file back (same id keeps the newer `updatedAt`, unknown ids are added). This is the supported way to move bookmarks between machines.
+
+### Security
+
+- The HTTP routes now reject requests whose `Origin` is neither DSH's own page (same host as the request, or the `dsh-app://` desktop shell) — a foreign web page can no longer read or change the profile data. CORS headers are only returned to an accepted origin, and POST routes reject non-JSON bodies so a cross-site simple request cannot be forged.
+
 ## [1.1.0] - 2026-11-26
 
 Jump precision and highlight rendering were reworked, and the four bookmark scopes now have a single, explicit meaning.
