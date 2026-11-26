@@ -102,7 +102,7 @@ git clone https://github.com/vera-hlh/dsh-plugin-favorites.git
 | `client.js` | Web 侧：插槽注册、面板、弹窗、跳转与高亮 |
 | `cordis.patch.yml` | 插入插件行的 bundle 补丁 |
 | `locale/*.json` | 插件管理器显示的元数据 |
-| `docs/` | 详情文档与功能图 |
+| `docs/` | 详情文档、功能图，以及[高亮对齐设计说明](docs/highlight-alignment.md) |
 
 改动宿主侧后，在「插件」里重新启用即可生效；改动前端侧需要重启应用（或重新构建客户端插件）。
 

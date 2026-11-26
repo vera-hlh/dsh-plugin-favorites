@@ -100,7 +100,7 @@ Disabling the bundle removes the buttons, the pill, the panel, and the agent too
 | `client.js` | Web half: slot registrations, panel, dialogs, jump and highlight |
 | `cordis.patch.yml` | Bundle patch that inserts the plugin row |
 | `locale/*.json` | Display metadata used by Plugin Manager |
-| `docs/` | Detail document and its feature image |
+| `docs/` | Detail document, feature image, and the [highlight alignment design](docs/highlight-alignment.md) |
 
 Reload after changing the Host half by toggling the plugin in Plugins; the client half needs an app restart (or a client plugin rebuild).
 
