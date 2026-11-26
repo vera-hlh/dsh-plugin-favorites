@@ -2,6 +2,29 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-11-27
+
+### Changed
+
+- The workspace group header shows the count with its unit (`12 条` in Chinese, `12` in English).
+
+### Docs
+
+- Both READMEs gained a "Panel behaviour" section covering the collapsed-by-default groups, the auto-expand-while-filtering rule, and the toolbar layout.
+
+## [1.2.2] - 2026-11-27
+
+### Changed
+
+- Workspace groups start collapsed, so a long list opens as a compact set of workspace headers; clicking a header toggles it. Any active filter (search, tag, type, session, or workspace) opens the groups automatically, and clearing the filter returns to the remembered state.
+- The expand/collapse caret is a larger, filled triangle that rotates on open and darkens to the primary label color; the group header now aligns on the icon's center line.
+
+## [1.2.1] - 2026-11-27
+
+### Changed
+
+- The toolbar actions (`Save a file`, `Export`, `Import`) now read as buttons: filled background, no outline, an icon per action, and their own right-aligned group. `Save a file` is the primary action with a brand tint. Other buttons (dialog actions, card actions) share the filled style.
+
 ## [1.2.0] - 2026-11-27
 
 ### Added

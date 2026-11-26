@@ -95,6 +95,7 @@ window.__ModuleLoader__.load({
         'toast.copyFailed': '复制失败。',
         'panel.kind.file': '文件',
         'panel.addFile': '收藏文件',
+      'panel.groupCount': '{n} 条',
       'panel.export': '导出',
       'panel.import': '导入',
       'toast.exported': '已导出收藏文件。',
@@ -186,6 +187,7 @@ window.__ModuleLoader__.load({
         'toast.copyFailed': 'Could not copy.',
         'panel.kind.file': 'File',
         'panel.addFile': 'Save a file',
+      'panel.groupCount': '{n}',
       'panel.export': 'Export',
       'panel.import': 'Import',
       'toast.exported': 'Favorites exported.',
@@ -1089,9 +1091,10 @@ window.__ModuleLoader__.load({
       '.dshfav-hchip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border:1px solid var(--dsw-alias-brand-primary);border-radius:999px;background:transparent;color:var(--dsw-alias-brand-primary);font-size:11px;font-family:inherit;line-height:1;cursor:pointer}',
       '.dshfav-hchip:hover{background:var(--dsw-alias-bg-layer-2)}',
       '.dshfav-group{display:block;margin:18px 0 8px}',
-      '.dshfav-group-btn{display:flex;align-items:baseline;gap:8px;width:100%;padding:2px 0;border:0;background:transparent;font-family:inherit;text-align:left;color:inherit;cursor:pointer}',
+      '.dshfav-group-btn{display:flex;align-items:center;gap:8px;width:100%;padding:4px 0;border:0;background:transparent;font-family:inherit;text-align:left;color:inherit;cursor:pointer}',
       '.dshfav-group-btn:hover .dshfav-group-title{color:var(--dsw-alias-brand-primary)}',
-      '.dshfav-group-caret{flex:none;width:10px;font-size:9px;line-height:1;color:var(--dsw-alias-label-secondary)}',
+      '.dshfav-group-caret{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--dsw-alias-label-secondary);transition:transform .12s ease,color .12s ease}',
+      '.dshfav-group-caret.is-open{transform:rotate(90deg);color:var(--dsw-alias-label-primary)}',
       '.dshfav-group-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);white-space:nowrap}',
       '.dshfav-group-path{min-width:0;font-size:10.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.dshfav-group-count{margin-left:auto;font-size:11px;color:var(--dsw-alias-label-secondary)}',
@@ -1173,12 +1176,13 @@ window.__ModuleLoader__.load({
       '.dshfav-readonly-text{margin:0;max-height:96px;overflow:auto;font-size:12px;line-height:18px;color:var(--dsw-alias-label-primary);white-space:pre-wrap;word-break:break-word}',
       '.dshfav-dialog-foot{display:flex;align-items:center;gap:8px;margin:4px 0 0}',
       '.dshfav-hint{margin-right:auto;font-size:10.5px;line-height:15px;color:var(--dsw-alias-label-secondary);max-width:240px}',
-      '.dshfav-btn{height:30px;padding:0 13px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:12.5px;font-family:inherit;cursor:pointer}',
-      '.dshfav-btn:hover{background:var(--dsw-alias-bg-layer-2)}',
-      '.dshfav-btn.is-primary{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}',
-      '.dshfav-btn.is-primary:hover{background:var(--dsw-alias-bg-layer-2)}',
-      '.dshfav-btn.is-quiet{border-color:transparent;color:var(--dsw-alias-label-secondary)}',
-      '.dshfav-btn.is-quiet:hover{color:var(--dsw-alias-state-error-primary)}',
+      '.dshfav-actions{display:flex;align-items:center;gap:6px;margin-left:auto}',
+      '.dshfav-btn{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid transparent;border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:12.5px;font-family:inherit;cursor:pointer;transition:background-color .12s ease,color .12s ease}',
+      '.dshfav-btn:hover{background:var(--dsw-alias-bg-overlay)}',
+      '.dshfav-btn.is-primary{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,var(--dsw-alias-bg-base));color:var(--dsw-alias-brand-primary);font-weight:600}',
+      '.dshfav-btn.is-primary:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 24%,var(--dsw-alias-bg-base))}',
+      '.dshfav-btn.is-quiet{background:transparent;color:var(--dsw-alias-label-secondary)}',
+      '.dshfav-btn.is-quiet:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-state-error-primary)}',
       '.dshfav-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}',
       '.dshfav-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:1300;max-width:min(520px,calc(100vw - 48px));padding:9px 14px;border:1px solid var(--dsw-alias-border-l1);border-radius:9px;background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);font-size:12px;line-height:18px;box-shadow:0 10px 30px var(--dsw-alias-border-l2)}',
       '.dshfav-panel-icon{display:inline-flex;align-items:center;justify-content:center;color:currentColor}',
@@ -1210,6 +1214,29 @@ window.__ModuleLoader__.load({
           d: 'M6.4 3.6h11.2c.99 0 1.8.81 1.8 1.8v14.9c0 .74-.85 1.15-1.43.7L12 16.6l-5.97 4.4c-.58.45-1.43.04-1.43-.7V5.4c0-.99.81-1.8 1.8-1.8Z',
         }),
       );
+    }
+
+    /* Small line icons for the toolbar actions: they make those controls read
+       as buttons rather than as the filter chips beside them. */
+    function ToolbarIcon(props) {
+      const size = props.size || 14;
+      const common = {
+        width: size,
+        height: size,
+        viewBox: '0 0 16 16',
+        'aria-hidden': 'true',
+        focusable: 'false',
+        style: { display: 'block', flex: 'none' },
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.6,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+      };
+      if (props.name === 'plus') return h('svg', common, h('path', { d: 'M8 3.2v9.6M3.2 8h9.6' }));
+      if (props.name === 'download') return h('svg', common, h('path', { d: 'M8 2.4v7.6m0 0L4.9 6.9M8 10l3.1-3.1M2.6 13.2h10.8' }));
+      if (props.name === 'upload') return h('svg', common, h('path', { d: 'M8 12.8V5.2m0 0L4.9 8.3M8 5.2l3.1 3.1M2.6 2.8h10.8' }));
+      return null;
     }
 
     function pulse(node) {
@@ -2697,7 +2724,8 @@ window.__ModuleLoader__.load({
         return (state && state.byId) || EMPTY_MAP;
       });
       const cardRefs = useRef(new Map());
-      const [collapsed, setCollapsed] = useState({});
+      /* Workspace groups start collapsed; a filter opens them automatically. */
+      const [expandedGroups, setExpandedGroups] = useState({});
 
       function sessionTitleOf(sessionId) {
         if (!sessionId) return '';
@@ -2854,49 +2882,56 @@ window.__ModuleLoader__.load({
               }),
             ),
             h(
-              'button',
-              {
-                type: 'button',
-                className: 'dshfav-btn',
-                onClick: function () {
-                  store.openFileForm(null);
+              'div',
+              { className: 'dshfav-actions' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshfav-btn is-primary',
+                  onClick: function () {
+                    store.openFileForm(null);
+                  },
                 },
-              },
-              t('panel.addFile'),
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                className: 'dshfav-btn',
-                onClick: function () {
-                  void store.exportFavorites();
+                h(ToolbarIcon, { name: 'plus' }),
+                t('panel.addFile'),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshfav-btn',
+                  onClick: function () {
+                    void store.exportFavorites();
+                  },
                 },
-              },
-              t('panel.export'),
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                className: 'dshfav-btn',
-                onClick: function () {
-                  if (importRef.current) importRef.current.click();
+                h(ToolbarIcon, { name: 'download' }),
+                t('panel.export'),
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dshfav-btn',
+                  onClick: function () {
+                    if (importRef.current) importRef.current.click();
+                  },
                 },
-              },
-              t('panel.import'),
+                h(ToolbarIcon, { name: 'upload' }),
+                t('panel.import'),
+              ),
+              h('input', {
+                ref: importRef,
+                type: 'file',
+                accept: 'application/json,.json',
+                style: { display: 'none' },
+                onChange: function (event) {
+                  const file = event.target.files && event.target.files[0];
+                  event.target.value = '';
+                  if (file) void store.importFavorites(file);
+                },
+              }),
             ),
-            h('input', {
-              ref: importRef,
-              type: 'file',
-              accept: 'application/json,.json',
-              style: { display: 'none' },
-              onChange: function (event) {
-                const file = event.target.files && event.target.files[0];
-                event.target.value = '';
-                if (file) void store.importFavorites(file);
-              },
-            }),
           ),
           sessionFilter || workspaceFilter
             ? h(
@@ -2955,7 +2990,8 @@ window.__ModuleLoader__.load({
             : null,
           visible.length
             ? groups.map(function (group) {
-                const isCollapsed = !!collapsed[group.key];
+                const forceOpen = Boolean(query.trim() || tag || kind !== 'all' || sessionFilter || workspaceFilter);
+                const isCollapsed = !forceOpen && !expandedGroups[group.key];
                 return h(
                   'section',
                   { key: group.key },
@@ -2970,17 +3006,25 @@ window.__ModuleLoader__.load({
                             className: 'dshfav-group-btn',
                             'aria-expanded': isCollapsed ? 'false' : 'true',
                             onClick: function () {
-                              setCollapsed(function (prev) {
+                              setExpandedGroups(function (prev) {
                                 const next = Object.assign({}, prev);
                                 next[group.key] = !next[group.key];
                                 return next;
                               });
                             },
                           },
-                          h('span', { className: 'dshfav-group-caret' }, isCollapsed ? '▸' : '▾'),
+                          h(
+                            'span',
+                            { className: cx('dshfav-group-caret', !isCollapsed && 'is-open') },
+                            h(
+                              'svg',
+                              { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': 'true', focusable: 'false', fill: 'currentColor' },
+                              h('path', { d: 'M4 2.4 8.6 6 4 9.6z' }),
+                            ),
+                          ),
                           h('span', { className: 'dshfav-group-title' }, group.title),
                           group.path ? h('span', { className: 'dshfav-group-path' }, group.path) : null,
-                          h('span', { className: 'dshfav-group-count' }, String(group.items.length)),
+                          h('span', { className: 'dshfav-group-count' }, t('panel.groupCount', { n: group.items.length })),
                         ),
                       )
                     : null,

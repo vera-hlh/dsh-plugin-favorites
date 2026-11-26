@@ -24,6 +24,11 @@ Sessions get long, and the one answer you needed disappears under a hundred tool
 
 The bookmark icon has three states: outlined (not saved), filled at 45% (the reply belongs to a saved turn), filled (saved).
 
+### Panel behaviour
+
+- Workspaces are grouped and **start collapsed**: the placeholder panels of a long list open as a compact set of workspace headers, each showing its bookmark count (`12 items`). Click a header to expand it; the choice is remembered for the session.
+- While any filter is active (search, tag, type, session, workspace) the groups **open automatically**, so matching bookmarks are never hidden inside a collapsed group; clearing the filter returns to the remembered state.
+- The panel toolbar holds the search box, the type filter, and three action buttons (`Save a file`, `Export`, `Import`) that sit as their own right-aligned group.
 ## Scopes
 
 | Scope | Saves | Jump lands on |
