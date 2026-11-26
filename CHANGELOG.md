@@ -2,6 +2,39 @@
 
 All notable changes to this plugin are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-26
+
+Jump precision and highlight rendering were reworked, and the four bookmark scopes now have a single, explicit meaning.
+
+### Changed
+
+- **Turn** bookmarks highlight that turn's prompt, located through Chat's own flow attributes (`data-chat-flow-kind="user"` + `data-chat-turn`) instead of layout heuristics or text matching.
+- **Message** bookmarks highlight the first paragraph of the turn's reply (which may wrap), located through `data-chat-flow-kind="assistant-step"`.
+- **Excerpt** and **file** bookmarks highlight the entire stored passage. Matching now works across text nodes, so a probe split by bold, inline code, or links still resolves to the whole passage.
+- Jumping to a bookmark far outside the loaded window pages history for up to 25 seconds and reports progress in a single, persistent notice that clears once the target is reached; a turn-based fallback aligns the view even when the message's action row never mounts.
+
+### Fixed
+
+- Highlight bands no longer stack their opacity (one band per visual line), no longer stop at inline code (same-line detection by vertical overlap), and no longer offset from the text.
+- Reasoning ("thinking") blocks, timestamps, and action rows are excluded from every text pick.
+- The loading notice no longer flickers between messages while history pages.
+
+### Removed
+
+- Temporary diagnostics and the `/diagnostics` route used while fixing the alignment.
+
+## [1.0.17] - 2026-11-26
+
+### Fixed
+
+- An excerpt whose opening line is short (a heading such as `归档执行`) started the highlight at the second line, because the start probe required at least six characters. A short opening line is now accepted when it matches exactly once inside the message, so the heading is included in the highlight.
+
+## [1.0.16] - 2026-11-26
+
+### Fixed
+
+- Jump highlight alignment: `paintRangeRects` bucketed line fragments by a quantized `top` (`Math.round(top / 2) * 2`). An inline code span renders a shorter box whose top sits a pixel or two above the prose, so every English/code fragment landed in its own bucket and got a second amber band with a different top and height — the overlay looked stepped and uneven on exactly those tokens. Line membership is now decided by vertical overlap (half the smaller box), and each band spans that line's full ascent→descent, so consecutive lines match.
+
 ## [1.0.3] - 2026-11-24
 
 ### Fixed

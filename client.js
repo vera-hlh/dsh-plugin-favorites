@@ -28,12 +28,12 @@ window.__ModuleLoader__.load({
 
     const STORE_KEY = 'dsh-plugin-favorites/v1';
     const PANEL_KEY = 'favorites';
-    const MAX_QUOTE = 420;
+    const MAX_QUOTE = 2000;
     const MAX_NOTE = 2000;
     const MAX_TITLE = 80;
     const MAX_TAGS = 8;
     const MAX_TAG_LEN = 24;
-    const REVEAL_MS = 15000;
+    const REVEAL_MS = 60000;
     const TOAST_MS = 4200;
 
     /* ------------------------------------------------------------------ i18n */
@@ -629,12 +629,23 @@ window.__ModuleLoader__.load({
         setState({ sessionFilter: null, workspaceFilter: null });
       }
 
-      function showToast(message) {
+
+      function hideToast() {
+        if (toastTimer) {
+          clearTimeout(toastTimer);
+          toastTimer = 0;
+        }
+        if (state.toast) setState({ toast: null });
+      }
+
+      /* sticky: keep it until hideToast() (used while history is paging). */
+      function showToast(message, sticky) {
         if (toastTimer) {
           clearTimeout(toastTimer);
           toastTimer = 0;
         }
         setState({ toast: message });
+        if (sticky) return;
         toastTimer = setTimeout(function () {
           toastTimer = 0;
           setState({ toast: null });
@@ -666,6 +677,7 @@ window.__ModuleLoader__.load({
            re-render; warn early when nothing matched at all. */
         revealToastTimer = setTimeout(function () {
           revealToastTimer = 0;
+          if (pagingBusy) return;
           if (!revealHandled && state.reveal && state.reveal.nonce === reveal.nonce) showToast(t('toast.opened'));
         }, 2500);
         revealTimer = setTimeout(function () {
@@ -783,6 +795,7 @@ window.__ModuleLoader__.load({
           if (event.type === 'turn/end' && event.data.turn === turn) endSeq = event.seq;
         }
         const parts = [];
+        const replies = [];
         let promptText = '';
         /* user/message events carry no `turn` field, so a turn is the sequence
            window between its turn/start and turn/end. */
@@ -796,10 +809,18 @@ window.__ModuleLoader__.load({
           const message = messageOf(event);
           if (!message) continue;
           const text = textOf(message);
-          if (text) parts.push(text);
+          if (text) {
+            parts.push(text);
+            if (event.type === 'assistant/message') replies.push(text);
+          }
           if (!promptText && event.type === 'user/message' && text) promptText = clampText(text, 160);
         }
-        return { seq: endSeq, quote: clampText(parts.join('\n'), MAX_QUOTE), promptText: promptText };
+        return {
+          seq: endSeq,
+          quote: clampText(parts.join('\n'), MAX_QUOTE),
+          replyQuote: clampText(replies.join('\n'), MAX_QUOTE),
+          promptText: promptText,
+        };
       }
 
       function buildVariants(sessionId, messageId) {
@@ -812,7 +833,10 @@ window.__ModuleLoader__.load({
           seq: anchorSeq,
           promptText: whole.promptText || '',
           variants: {
-            message: { quote: captured.quote, title: defaultTitle('message', turn, captured.quote) },
+            message: {
+              quote: whole.replyQuote || captured.quote,
+              title: defaultTitle('message', turn, whole.replyQuote || captured.quote),
+            },
             turn: { quote: whole.quote, title: defaultTitle('turn', turn, whole.quote) },
           },
         };
@@ -956,6 +980,8 @@ window.__ModuleLoader__.load({
         captureMessage: captureMessage,
         openMessageEditor: openMessageEditor,
         openExcerptDraft: openExcerptDraft,
+        showToast: showToast,
+        hideToast: hideToast,
         setPill: setPill,
         clearPill: clearPill,
         setHighlightRects: setHighlightRects,
@@ -1185,6 +1211,7 @@ window.__ModuleLoader__.load({
 
     let highlightToken = 0;
     let revealWatcher = null;
+    let pagingBusy = false;
 
     function clearRevealWatcher() {
       if (revealWatcher) {
@@ -1198,55 +1225,243 @@ window.__ModuleLoader__.load({
        CSS Custom Highlight support is required. */
     function paintRangeRects(range) {
       if (!range) return 0;
+      /* Per text node, so the overlay hugs the glyphs instead of spreading over
+         block boxes (which produced full-width bands) and never double-paints. */
       let rects = [];
       try {
-        rects = Array.prototype.slice.call(range.getClientRects()).slice(0, 80).map(function (rect) {
-          return {
-            left: Math.round(rect.left),
-            top: Math.round(rect.top),
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
-          };
-        });
+        const root =
+          range.commonAncestorContainer && range.commonAncestorContainer.nodeType === 3
+            ? range.commonAncestorContainer.parentElement
+            : range.commonAncestorContainer;
+        const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+        const seen = {};
+        let node = walker.nextNode();
+        let guard = 0;
+        while (node && guard < 4000) {
+          guard += 1;
+          if (range.intersectsNode(node)) {
+            const value = node.nodeValue || '';
+            const start = node === range.startContainer ? range.startOffset : 0;
+            const end = node === range.endContainer ? range.endOffset : value.length;
+            if (end > start) {
+              const sub = document.createRange();
+              try {
+                sub.setStart(node, start);
+                sub.setEnd(node, end);
+                const list = sub.getClientRects();
+                for (let i = 0; i < list.length; i += 1) {
+                  const rect = list[i];
+                  if (!(rect.width > 0 && rect.height > 0)) continue;
+                  const key = [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width), Math.round(rect.height)].join(':');
+                  if (seen[key]) continue;
+                  seen[key] = 1;
+                  rects.push({ left: Math.round(rect.left), top: Math.round(rect.top), width: Math.round(rect.width), height: Math.round(rect.height) });
+                  if (rects.length >= 120) break;
+                }
+              } catch (err) {
+                /* skip this node */
+              }
+            }
+          }
+          if (rects.length >= 120) break;
+          node = walker.nextNode();
+        }
       } catch (err) {
         rects = [];
       }
-      const visible = rects.filter(function (rect) {
-        return rect.width > 0 && rect.height > 0;
-      });
+      /* One rect per visual line: the inline fragments of a line would otherwise
+         stack their opacity and show steps.
+         Line membership is decided by VERTICAL OVERLAP, not by a quantized top.
+         An inline code span renders a shorter box whose top sits a pixel or two
+         above the surrounding prose; bucketing by `Math.round(top / 2) * 2` (the
+         previous rule) dropped it into its own bucket, so every English/code
+         fragment got a second band with a different top and height — the amber
+         overlay looked uneven and stepped on exactly those tokens. Overlap
+         clustering keeps such a fragment on the line it belongs to, and the band
+         then spans that line's full ascent→descent, so consecutive lines match. */
+      const lines = [];
+      for (let i = 0; i < rects.length; i += 1) {
+        const rect = rects[i];
+        if (!(rect.width > 0 && rect.height > 0)) continue;
+        if (rect.height < 4) continue; /* line-break / zero-width slivers */
+        if (rect.width > 1200) continue;
+        const top = rect.top;
+        const bottom = rect.top + rect.height;
+        let line = null;
+        for (let j = 0; j < lines.length; j += 1) {
+          const candidate = lines[j];
+          const overlap = Math.min(candidate.bottom, bottom) - Math.max(candidate.top, top);
+          const smaller = Math.min(candidate.bottom - candidate.top, bottom - top);
+          /* Half the smaller box is enough: a prose box and a code box on one
+             line overlap by most of the shorter one, while neighbouring lines
+             only touch at their edges. */
+          if (smaller > 0 && overlap >= smaller * 0.5) {
+            line = candidate;
+            break;
+          }
+        }
+        if (!line) {
+          lines.push({ left: rect.left, right: rect.left + rect.width, top: top, bottom: bottom });
+          continue;
+        }
+        if (rect.left < line.left) line.left = rect.left;
+        if (rect.left + rect.width > line.right) line.right = rect.left + rect.width;
+        if (top < line.top) line.top = top;
+        if (bottom > line.bottom) line.bottom = bottom;
+      }
+      const visible = [];
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+        visible.push({
+          left: line.left,
+          top: line.top,
+          width: Math.max(1, line.right - line.left),
+          height: Math.max(1, line.bottom - line.top),
+        });
+      }
       store.setHighlightRects(visible);
+      /* Verify the painted overlay against the range: if these disagree the
+         overlay coordinate system is off (e.g. a transformed ancestor). */
+      if (visible.length) {
+        setTimeout(function () {
+          try {
+            const painted = document.querySelector('.dshfav-hl');
+            const live = visible[0] || { top: 0, left: 0 };
+          } catch (err) {
+            /* ignore */
+          }
+        }, 80);
+      }
       return visible.length;
+    }
+
+    /* Fallback reveal without the action row: a very old message may never
+       mount its row, so align by turn instead. */
+    function revealByTurn(turn, kind) {
+      if (typeof turn !== 'number') return false;
+      let range = null;
+      if (kind === 'turn') {
+        const prompts = chatFlowItems('user', turn);
+        range = blockTextRange(prompts[prompts.length - 1]);
+      }
+      if (!range) {
+        const rows = chatFlowItems('assistant-step', turn);
+        for (let i = 0; i < rows.length && !range; i += 1) {
+          const host = rows[i].querySelector ? rows[i].querySelector('p,li,h1,h2,h3,h4,h5,h6,blockquote') : null;
+          range = blockTextRange(host || rows[i]);
+        }
+      }
+      if (!range) return false;
+      const startEl = range.startContainer.parentElement || document.body;
+      const port = scrollportOf(startEl);
+      const rect = range.getBoundingClientRect();
+      const portTop = port ? port.getBoundingClientRect().top : 0;
+      const delta = rect.top - (portTop + 120);
+      if (port) port.scrollTop += delta;
+      else window.scrollBy(0, delta);
+      paintRangeRects(range);
+      setTimeout(function () {
+        store.clearHighlightRects();
+      }, 2500);
+      return true;
+    }
+
+    /* Cross-node text matcher: join every text node into one searchable stream
+       (recording where each character came from), so a probe that the renderer
+       split across <strong>/<code> still matches the whole line. */
+    function findStreamRange(anchor, probeRaw, minTop, maxTop) {
+      const probe = String(probeRaw || '').replace(/[\s*_#>]+/g, '');
+      if (probe.length < 4) return null;
+      const root = scrollportOf(anchor) || document.body;
+      let walker;
+      try {
+        walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      let clean = '';
+      const map = [];
+      let node = walker.nextNode();
+      let guard = 0;
+      while (node && guard < 20000) {
+        guard += 1;
+        const parent = node.parentElement;
+        const blocked = parent && parent.closest ? parent.closest('[data-clock],[data-actions-reveal],[data-disclosure-row],[data-disclosure-header],[data-disclosure-panel],time,[aria-hidden="true"]') : null;
+        const value = String(node.nodeValue || '');
+        if (!blocked && value) {
+          for (let i = 0; i < value.length; i += 1) {
+            const ch = value[i];
+            if (/[\s*_`#>]/.test(ch)) continue; /* same normalization as the probe */
+            clean += ch;
+            map.push({ node: node, offset: i });
+          }
+        }
+        node = walker.nextNode();
+      }
+      if (!clean) return null;
+      let from = 0;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const at = clean.indexOf(probe, from);
+        if (at < 0) return null;
+        from = at + 1;
+        const start = map[at];
+        const end = map[Math.min(map.length - 1, at + probe.length - 1)];
+        if (!start || !end) continue;
+        const range = document.createRange();
+        try {
+          range.setStart(start.node, start.offset);
+          range.setEnd(end.node, end.offset + 1);
+        } catch (err) {
+          continue;
+        }
+        const rect = range.getBoundingClientRect();
+        if (!rect || (rect.width === 0 && rect.height === 0)) continue;
+        const insideRegion =
+          !(typeof minTop === 'number' && rect.top < minTop - 8) &&
+          !(typeof maxTop === 'number' && rect.top > maxTop + 8);
+        if (insideRegion) return range;
+      }
+      return null;
     }
 
     /* Locate the stored excerpt inside the rendered transcript. The quote is the
        user's selection, so the match is the precise anchor we otherwise have to
        guess from message geometry. Rendered text keeps its own line breaks, so
        probe with single lines / single tokens instead of a normalized prefix. */
-    function findQuoteRange(anchor, quote, preferTopmost, minTop) {
+    function findQuoteRange(anchor, quote, preferTopmost, minTop, maxTop) {
       const raw = String(quote || '');
-      if (raw.trim().length < 6) return null;
+      if (raw.trim().length < 2) return null;
       const plain = function (value) {
         return String(value || '').replace(/[*_`#>]/g, '').trim();
       };
       const lines = raw.split('\n');
       const candidates = [];
-      for (let i = 0; i < lines.length && candidates.length < 4; i += 1) {
+      for (let i = 0; i < lines.length; i += 1) {
         const line = plain(lines[i]);
-        if (line.length >= 6) candidates.push(line);
+        if (!line) continue;
+        if (line.length >= 6) {
+          if (candidates.length < 5) candidates.push({ text: line, short: false });
+        } else if (line.length >= 2 && !candidates.length) {
+          /* A short opening line (a heading such as 归档执行) still starts the
+             passage, so keep it — it must be unique inside the region. */
+          candidates.push({ text: line, short: true });
+        }
       }
       const tokens = plain(raw).split(/\s+/);
-      for (let i = 0; i < tokens.length && candidates.length < 6; i += 1) {
-        if (tokens[i].length >= 8) candidates.push(tokens[i]);
+      for (let i = 0; i < tokens.length && candidates.length < 7; i += 1) {
+        if (tokens[i].length >= 8) candidates.push({ text: tokens[i], short: false });
       }
       if (!candidates.length) return null;
       const root = scrollportOf(anchor) || document.body;
       const anchorRect = anchor.getBoundingClientRect();
-      const lengths = [40, 24, 12];
+      const lengths = [40, 32, 24, 16, 12, 8];
       for (let c = 0; c < candidates.length; c += 1) {
-        const candidate = candidates[c];
-        for (let l = 0; l < lengths.length; l += 1) {
-          const probe = candidate.slice(0, lengths[l]);
-          if (probe.length < 6) continue;
+        const candidate = candidates[c].text;
+        const isShort = candidates[c].short;
+        const steps = isShort ? [candidate.length] : lengths;
+        for (let l = 0; l < steps.length; l += 1) {
+          const probe = candidate.slice(0, steps[l]);
+          if (probe.length < (isShort ? 2 : 6)) continue;
           let walker;
           try {
             walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -1255,6 +1470,7 @@ window.__ModuleLoader__.load({
           }
           let best = null;
           let bestDistance = Infinity;
+          let matches = 0;
           let node = walker.nextNode();
           while (node) {
             const text = node.nodeValue || '';
@@ -1264,8 +1480,11 @@ window.__ModuleLoader__.load({
               range.setStart(node, at);
               range.setEnd(node, Math.min(text.length, at + probe.length));
               const rect = range.getBoundingClientRect();
-              const insideRegion = !(typeof minTop === 'number' && rect && rect.top < minTop - 8);
+              const insideRegion =
+                !(typeof minTop === 'number' && rect && rect.top < minTop - 8) &&
+                !(typeof maxTop === 'number' && rect && rect.top > maxTop + 8);
               if (rect && (rect.width > 0 || rect.height > 0) && insideRegion) {
+                matches += 1;
                 const distance = preferTopmost ? rect.top : Math.abs(rect.top - anchorRect.top);
                 if (distance < bestDistance) {
                   bestDistance = distance;
@@ -1275,10 +1494,419 @@ window.__ModuleLoader__.load({
             }
             node = walker.nextNode();
           }
-          if (best) return best;
+          /* A short probe is only trustworthy when it matches exactly once. */
+          if (best && (!isShort || matches === 1)) return best;
+          if (isShort) break;
         }
       }
       return null;
+    }
+
+    /* The message block that owns this action row: the largest ancestor whose
+       top has not climbed past the previous message's row. */
+
+    /* The first rendered line inside a block: grow a range across text nodes
+       while the bounding box stays on the same visual line. */
+    function firstLineRange(block, startNode) {
+      if (!block) return null;
+      let walker;
+      try {
+        walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      let node;
+      const usable = function (candidate) {
+        if (!candidate) return false;
+        if (!String(candidate.nodeValue || '').trim()) return false;
+        const parent = candidate.parentElement;
+        if (!parent || !parent.closest) return true;
+        const blocked = parent.closest('[data-clock],[data-actions-reveal],[data-disclosure-row],[data-disclosure-header],[data-disclosure-panel],time,[aria-hidden="true"],[data-slot*="reasoning"]');
+        if (blocked) return false;
+        /* Collapsed reasoning toggle labels ("思考", "Thinking") are not content. */
+        const label = String(candidate.nodeValue || '').trim();
+        if (label === '思考' || label === 'Thinking' || label === 'Reasoning') return false;
+        return true;
+      };
+      if (startNode && startNode.nodeType === 3 && usable(startNode)) {
+        walker.currentNode = startNode;
+        node = startNode;
+      } else {
+        node = walker.nextNode();
+        while (node && !usable(node)) node = walker.nextNode();
+      }
+      if (!node) return null;
+      const range = document.createRange();
+      try {
+        range.setStart(node, 0);
+        range.setEnd(node, String(node.nodeValue || '').length);
+      } catch (err) {
+        return null;
+      }
+      const firstBox = range.getBoundingClientRect();
+      const baseTop = firstBox.top;
+      const baseHeight = firstBox.height;
+      const firstLeft = firstBox.left;
+      let last = node;
+      let next = walker.nextNode();
+      let guard = 0;
+      while (next && guard < 200) {
+        guard += 1;
+        try {
+          range.setEnd(next, String(next.nodeValue || '').length);
+        } catch (err) {
+          break;
+        }
+        /* A multi-line range keeps the bounding-box top of its first line, so
+           the wrap test must look at the LAST rect, not the union box. */
+        const spans = range.getClientRects();
+        const lastRect = spans.length ? spans[spans.length - 1] : null;
+        /* Same visual line = the new box overlaps the first line's band. */
+        /* Same line = still on the first line's band, OR continuing to the right
+           of where the line started (an inline code box may ride lower). A wrap
+           always returns to the left edge. */
+        const sameLine =
+          lastRect &&
+          (lastRect.top <= baseTop + baseHeight + 4
+            ? lastRect.top + lastRect.height >= baseTop - 4
+            : lastRect.left > firstLeft + 10);
+        if (!sameLine) {
+          try {
+            range.setEnd(last, String(last.nodeValue || '').length);
+          } catch (err) {
+            /* keep what we have */
+          }
+          break;
+        }
+        last = next;
+        next = walker.nextNode();
+      }
+      return range;
+    }
+
+    /* For a message bookmark: the first line of the message content. The action
+       row shares the content column, so only text nodes whose left edge matches
+       it are considered (this excludes right-aligned user bubbles). */
+    function firstContentLine(anchor, regionTop) {
+      const port = scrollportOf(anchor) || document.body;
+      const anchorRect = anchor.getBoundingClientRect();
+      let walker;
+      try {
+        walker = document.createTreeWalker(port, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      let node = walker.nextNode();
+      let best = null;
+      let guard = 0;
+      while (node && guard < 4000) {
+        guard += 1;
+        const text = node.nodeValue || '';
+        if (text.trim()) {
+          const probe = document.createRange();
+          try {
+            probe.selectNodeContents(node);
+          } catch (err) {
+            node = walker.nextNode();
+            continue;
+          }
+          const rect = probe.getBoundingClientRect();
+          const insideTop = typeof regionTop !== 'number' || rect.top >= regionTop - 2;
+          const aboveAnchor = rect.top <= anchorRect.top - 10;
+          const sameColumn = Math.abs(rect.left - anchorRect.left) < 80;
+          if (insideTop && aboveAnchor && sameColumn && rect.height > 0) {
+            /* Keep the leftmost node of the topmost line: the first line is often
+               split by inline code, and only its first fragment starts the line. */
+            if (
+              !best ||
+              rect.top < best.top - 4 ||
+              (Math.abs(rect.top - best.top) <= 4 && rect.left < best.left)
+            ) {
+              best = { node: node, top: rect.top, left: rect.left };
+            }
+            continue;
+          }
+          if (best && rect.top > anchorRect.top) break;
+        }
+        node = walker.nextNode();
+      }
+      return best ? firstLineRange(scrollportOf(anchor) || document.body, best.node) : null;
+    }
+
+    /* Chat marks every flow row: data-chat-flow-kind (user / assistant-step /
+       turn-tail / tool-call …) and data-chat-turn. Use those instead of layout. */
+    function chatFlowItems(kind, turn) {
+      const all = document.querySelectorAll('[data-chat-flow-kind="' + kind + '"]');
+      const out = [];
+      for (let i = 0; i < all.length; i += 1) {
+        if (typeof turn === 'number') {
+          const value = Number(all[i].getAttribute('data-chat-turn'));
+          if (value !== turn) continue;
+        }
+        out.push(all[i]);
+      }
+      return out;
+    }
+
+    function blockTextRange(element) {
+      if (!element) return null;
+      let walker;
+      try {
+        walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      let first = null;
+      let last = null;
+      let node = walker.nextNode();
+      while (node) {
+        if (String(node.nodeValue || '').trim()) {
+          const parent = node.parentElement;
+          const meta = parent && parent.closest ? parent.closest('[data-clock],[data-actions-reveal],[data-disclosure-row],[data-disclosure-header],[data-disclosure-panel],time,[aria-hidden="true"]') : null;
+          if (!(meta && element.contains(meta))) {
+            if (!first) first = node;
+            last = node;
+          }
+        }
+        node = walker.nextNode();
+      }
+      if (!first || !last) return null;
+      /* Probe: what does the picked node sit inside? (reasoning vs reply body) */
+      const range = document.createRange();
+      try {
+        range.setStart(first, 0);
+        range.setEnd(last, String(last.nodeValue || '').length);
+      } catch (err) {
+        return null;
+      }
+      return range;
+    }
+
+    /* A turn highlights that turn's PROMPT. The prompt is the first block of the
+       turn region and renders as a right-aligned bubble, while the reply body is
+       left-aligned — so extend while the next text keeps the same left column. */
+    function firstPromptRange(anchor, regionTop) {
+      const port = scrollportOf(anchor) || document.body;
+      const anchorRect = anchor.getBoundingClientRect();
+      let walker;
+      try {
+        walker = document.createTreeWalker(port, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      const rectOf = function (node) {
+        try {
+          const probe = document.createRange();
+          probe.selectNodeContents(node);
+          return probe.getBoundingClientRect();
+        } catch (err) {
+          return null;
+        }
+      };
+      let node = walker.nextNode();
+      let start = null;
+      let guard = 0;
+      while (node && guard < 6000) {
+        guard += 1;
+        if (String(node.nodeValue || '').trim()) {
+          const rect = rectOf(node);
+          const insideTop = typeof regionTop !== 'number' || (rect && rect.top >= regionTop - 2);
+          if (rect && insideTop && rect.top <= anchorRect.top - 2 && rect.height > 0) {
+            start = { node: node, rect: rect };
+            break;
+          }
+        }
+        node = walker.nextNode();
+      }
+      if (!start) return null;
+      const range = document.createRange();
+      const startLen = String(start.node.nodeValue || '').length;
+      try {
+        range.setStart(start.node, 0);
+        range.setEnd(start.node, startLen);
+      } catch (err) {
+        return null;
+      }
+      const baseLeft = start.rect.left;
+      const baseTop = start.rect.top;
+      let next = walker.nextNode();
+      let steps = 0;
+      while (next && steps < 120) {
+        steps += 1;
+        const text = String(next.nodeValue || '');
+        if (!text.trim()) {
+          next = walker.nextNode();
+          continue;
+        }
+        const nextRect = rectOf(next);
+        const keepNode = range.endContainer;
+        const keepOffset = range.endOffset;
+        try {
+          range.setEnd(next, text.length);
+        } catch (err) {
+          break;
+        }
+        const rects = range.getClientRects();
+        const tail = rects.length ? rects[rects.length - 1] : null;
+        const sameColumn = nextRect ? Math.abs(nextRect.left - baseLeft) <= 40 : false;
+        const stillInside = nextRect ? nextRect.top >= baseTop - 6 && nextRect.top <= anchorRect.top : false;
+        if (!tail || !sameColumn || !stillInside) {
+          try {
+            range.setEnd(keepNode, keepOffset);
+          } catch (err) {
+            /* ignore */
+          }
+          break;
+        }
+        next = walker.nextNode();
+      }
+      return range;
+    }
+
+    /* The text node that starts the reply body (same script as the stored
+       opening), so the caller can expand its paragraph. */
+    function findScriptNode(scope, probe) {
+      if (!scope) return null;
+      const sample = String(probe || '').replace(/[\s*_#>]/g, '').slice(0, 1);
+      const wantCjk = /[\u3400-\u9fff]/.test(sample);
+      let walker;
+      try {
+        walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return null;
+      }
+      let node = walker.nextNode();
+      let guard = 0;
+      while (node && guard < 4000) {
+        guard += 1;
+        const text = String(node.nodeValue || '').trim();
+        if (text) {
+          const isCjk = /[\u3400-\u9fff]/.test(text[0]);
+          const parent = node.parentElement;
+          const blocked = parent && parent.closest ? parent.closest('[data-clock],[data-actions-reveal],[data-disclosure-row],[data-disclosure-header],[data-disclosure-panel],time,[aria-hidden="true"]') : null;
+          if (!blocked && isCjk === wantCjk) return node;
+        }
+        node = walker.nextNode();
+      }
+      return null;
+    }
+
+    /* Prefer the first line written in the same script as the stored opening:
+       English reasoning precedes a Chinese reply, and vice versa. */
+
+    /* Pick the first line that actually STARTS the stored text: the reply body
+       matches the excerpt's opening, whereas a reasoning block does not. */
+
+    /* Extend a matched range to the end of its visual line, so a short probe
+       does not leave only a few characters highlighted. */
+    function extendToLineEnd(range, root) {
+      if (!range) return range;
+      const first = range.getClientRects()[0];
+      if (!first) return range;
+      const baseTop = first.top;
+      const baseHeight = first.height;
+      const firstLeft = first.left;
+      let walker;
+      try {
+        walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+      } catch (err) {
+        return range;
+      }
+      const endNode = range.endContainer;
+      if (endNode && endNode.nodeType === 3) {
+        try {
+          range.setEnd(endNode, String(endNode.nodeValue || '').length);
+        } catch (err) {
+          /* keep as is */
+        }
+      }
+      walker.currentNode = endNode;
+      let next = walker.nextNode();
+      let guard = 0;
+      while (next && guard < 200) {
+        guard += 1;
+        const keepNode = range.endContainer;
+        const keepOffset = range.endOffset;
+        try {
+          range.setEnd(next, String(next.nodeValue || '').length);
+        } catch (err) {
+          break;
+        }
+        const rects = range.getClientRects();
+        const last = rects.length ? rects[rects.length - 1] : null;
+        const sameLine =
+          last &&
+          (last.top <= baseTop + baseHeight + 4 ? last.top + last.height >= baseTop - 4 : last.left > firstLeft + 10);
+        if (!sameLine) {
+          try {
+            range.setEnd(keepNode, keepOffset);
+          } catch (err) {
+            /* ignore */
+          }
+          break;
+        }
+        next = walker.nextNode();
+      }
+      return range;
+    }
+
+    /* Grow the probe range to cover the whole stored excerpt: its last line
+       marks the end, so a multi-line selection paints several rects. */
+    function extendRangeToQuote(range, quote, root) {
+      if (!range) return range;
+      const lines = String(quote || '')
+        .split('\n')
+        .map(function (line) {
+          return String(line).replace(/[*_#>]/g, '').trim();
+        })
+        .filter(function (line) {
+          return line.length >= 6;
+        });
+      if (lines.length < 2) return range;
+      /* The quote's last line is often clamped mid-sentence and split across
+         inline elements, so try several tail candidates from long to short. */
+      const candidates = [];
+      const tailLines = lines.slice(-2).reverse();
+      for (let i = 0; i < tailLines.length; i += 1) {
+        const line = tailLines[i];
+        const lengths = [24, 16, 12, 8];
+        for (let l = 0; l < lengths.length; l += 1) {
+          const tail = line.slice(-lengths[l]);
+          if (tail.length >= 8 && candidates.indexOf(tail) < 0) candidates.push(tail);
+        }
+      }
+      if (!candidates.length) return range;
+      /* Collect the text nodes that follow the start once, then test candidates. */
+      const nodes = [];
+      let walker;
+      try {
+        walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+        walker.currentNode = range.startContainer;
+      } catch (err) {
+        return range;
+      }
+      let guard = 0;
+      let node = walker.nextNode();
+      while (node && guard < 600) {
+        guard += 1;
+        nodes.push(node);
+        node = walker.nextNode();
+      }
+      for (let c = 0; c < candidates.length; c += 1) {
+        const tail = candidates[c];
+        for (let n = 0; n < nodes.length; n += 1) {
+          const text = nodes[n].nodeValue || '';
+          const at = text.indexOf(tail);
+          if (at >= 0) {
+            try {
+              range.setEnd(nodes[n], Math.min(text.length, at + tail.length));
+            } catch (err) {
+            }
+            return range;
+          }
+        }
+      }
+      return range;
     }
 
     function revealIntoView(node, options) {
@@ -1297,6 +1925,19 @@ window.__ModuleLoader__.load({
       const prompt = options && typeof options.prompt === 'string' ? options.prompt : '';
       const searchText = (kind === 'turn' && prompt.length > 0 ? prompt : quote).trim();
       const useQuote = searchText.replace(/\s+/g, ' ').length >= 6;
+      const messageRegion = (function () {
+        const me = current();
+        const all = document.querySelectorAll('[data-dshfav-anchor]');
+        let previous = null;
+        for (let i = 0; i < all.length; i += 1) {
+          if (all[i] === me) break;
+          previous = all[i];
+        }
+        return {
+          top: previous ? previous.getBoundingClientRect().bottom : undefined,
+          bottom: me.getBoundingClientRect().top,
+        };
+      })();
       const turnRegionTop = (function () {
         if (kind !== 'turn') return undefined;
         const all = document.querySelectorAll('[data-dshfav-anchor]');
@@ -1307,7 +1948,81 @@ window.__ModuleLoader__.load({
         }
         return previous ? previous.getBoundingClientRect().bottom : undefined;
       })();
-      let range = useQuote ? findQuoteRange(current(), searchText, kind === 'turn', turnRegionTop) : null;
+      store.hideToast();
+      const turnNumber = (function () {
+        if (options && typeof options.turn === 'number') return options.turn;
+        const attr = current().getAttribute('data-dshfav-turn');
+        if (attr) return Number(attr);
+        /* The action row lives inside a flow row that already carries the turn. */
+        const row = current().closest ? current().closest('[data-chat-turn]') : null;
+        if (row) {
+          const value = Number(row.getAttribute('data-chat-turn'));
+          if (!isNaN(value)) return value;
+        }
+        return undefined;
+      })();
+
+      /* Deterministic first: Chat marks every flow row with data-chat-flow-kind and
+         data-chat-turn, so a turn takes its `user` row's text and a message takes
+         the turn's first `assistant-step` line. Layout heuristics and text
+         matching are fallbacks only. */
+      function pickRange() {
+        const hasTurn = typeof turnNumber === 'number' && !isNaN(turnNumber);
+        if (hasTurn && kind === 'turn') {
+          const prompts = chatFlowItems('user', turnNumber);
+          const direct = blockTextRange(prompts[prompts.length - 1]);
+          if (direct) return direct;
+        }
+        const firstProbe = String(searchText || '')
+          .split('\n')
+          .map(function (line) {
+            return line.trim();
+          })
+          .find(function (line) {
+            return line.length >= 4;
+          });
+        /* A message bookmark is "this turn's reply, first line": take it from the
+           turn's first assistant row — no text matching, which proved unreliable
+           whenever the stored text is markdown or spans inline elements. */
+        if (hasTurn && kind === 'message') {
+          const steps = chatFlowItems('assistant-step', turnNumber);
+          for (let s = 0; s < steps.length; s += 1) {
+            const start = findScriptNode(steps[s], searchText);
+            if (!start) continue;
+            /* Highlight the reply's first paragraph as a whole: it may wrap. */
+            const host = start.parentElement ? start.parentElement.closest('p,li,h1,h2,h3,h4,h5,h6,blockquote') : null;
+            const whole = blockTextRange(host || (start.parentElement || steps[s]));
+            if (whole) return whole;
+          }
+          const direct = firstLineRange(steps[0] || current());
+          if (direct) return direct;
+        }
+        if (useQuote && firstProbe && (kind === 'excerpt' || kind === 'file')) {
+          const byStream = findStreamRange(current(), firstProbe.slice(0, 40), messageRegion.top, messageRegion.bottom);
+          if (byStream) return extendRangeToQuote(byStream, searchText, port());
+        }
+        if (kind === 'turn') {
+          const byLayout = firstPromptRange(current(), messageRegion.top);
+          if (byLayout) return byLayout;
+        }
+        if (kind === 'message') {
+          const byLayout = firstContentLine(current(), messageRegion.top);
+          if (byLayout) return byLayout;
+        }
+        if (!useQuote) return null;
+        let matched =
+          findQuoteRange(current(), searchText, kind === 'message' || kind === 'turn', messageRegion.top, messageRegion.bottom) ||
+          findQuoteRange(current(), searchText, kind === 'turn', turnRegionTop);
+        if (!matched) return null;
+        if (kind === 'excerpt' || kind === 'file') return extendRangeToQuote(matched, searchText, port());
+        if (kind === 'turn') {
+          matched = extendRangeToQuote(matched, searchText, port());
+          return extendToLineEnd(matched, port());
+        }
+        return extendToLineEnd(matched, port());
+      }
+
+      let range = pickRange();
       if (range) paintRangeRects(range);
       const token = (highlightToken += 1);
       let finished = false;
@@ -1316,7 +2031,7 @@ window.__ModuleLoader__.load({
       const BOTTOM_GAP = 140;
       const TOP_INSET = 24;
       const QUOTE_INSET = 120;
-      const WINDOW_MS = 12000;
+      const WINDOW_MS = 20000;
 
       function port() {
         return scrollportOf(current());
@@ -1384,7 +2099,7 @@ window.__ModuleLoader__.load({
               clearRevealWatcher();
               return;
             }
-            if (!range && useQuote) range = findQuoteRange(current(), searchText, kind === 'turn', turnRegionTop);
+            if (!range) range = pickRange();
             align();
             if (range) paintRangeRects(range);
             const watchToken = highlightToken;
@@ -1407,7 +2122,9 @@ window.__ModuleLoader__.load({
       }
 
       function onUser() {
-        /* A deliberate gesture ends the highlight immediately. */
+        /* Ignore the click that opened the session: only a gesture made after
+           the jump has settled counts as deliberate. */
+        if (Date.now() - started < 800) return;
         store.clearHighlightRects();
         stop(true);
       }
@@ -1418,12 +2135,13 @@ window.__ModuleLoader__.load({
           stop();
           return;
         }
-        if (!range && useQuote) {
-          range = findQuoteRange(current(), searchText, kind === 'turn', turnRegionTop);
-        }
+        if (!range) range = pickRange();
+        /* Align first, then paint, so the overlay never lags the scroll. */
+        if (Math.abs(delta()) > 40) align();
         if (range) paintRangeRects(range);
         const elapsed = Date.now() - started;
-        if (Math.abs(delta()) > 40) align();
+        if (elapsed < 3000 || elapsed % 1000 < 130) {
+        }
         if (elapsed > WINDOW_MS) {
           stop();
           return;
@@ -1444,10 +2162,17 @@ window.__ModuleLoader__.load({
 
     /* Older messages live outside the loaded window: page history through the
        anchor's sequence until its action row exists in the DOM. */
-    function ensureAnchorLoaded(sessionId, messageId, seq) {
-      if (!messageId) return;
+    function ensureAnchorLoaded(sessionId, messageId, seq, turn) {
+      if (!messageId) return Promise.resolve(false);
       const started = Date.now();
       let pages = 0;
+      const maxPages = 120;
+      const maxMs = 25000;
+      /* One loading indicator from the start; it clears when this resolves. */
+      if (!document.querySelector('[data-dshfav-anchor="' + messageId + '"]')) {
+        pagingBusy = true;
+        store.showToast('正在向上加载历史…', true);
+      }
 
       function sleep(ms) {
         return new Promise(function (resolve) {
@@ -1456,10 +2181,21 @@ window.__ModuleLoader__.load({
       }
 
       async function step() {
-        if (Date.now() - started > 6000) return;
-        if (document.querySelector('[data-dshfav-anchor="' + messageId + '"]')) return;
-        if (pages < 10) {
+        if (Date.now() - started > maxMs) {
+          pagingBusy = false;
+          return false;
+        }
+        if (document.querySelector('[data-dshfav-anchor="' + messageId + '"]')) {
+          pagingBusy = false;
+          return true;
+        }
+        if (typeof turn === 'number' && chatFlowItems('assistant-step', turn).length) {
+          pagingBusy = false;
+          return false;
+        }
+        if (pages < maxPages) {
           pages += 1;
+          if (pages % 5 === 0) store.showToast('正在向上加载历史…（第 ' + pages + ' 页）', true);
           try {
             const sessions = clientCtx && typeof clientCtx.get === 'function' ? clientCtx.get('sessions') : undefined;
             const binding = sessions && typeof sessions.binding === 'function' ? sessions.binding(sessionId) : undefined;
@@ -1473,11 +2209,11 @@ window.__ModuleLoader__.load({
             /* a failed page just leaves the message unmounted */
           }
         }
-        await sleep(220);
+        await sleep(150);
         return step();
       }
 
-      void step();
+      return step();
     }
 
     /* ------------------------------------------------- per-message bookmark */
@@ -1611,7 +2347,7 @@ window.__ModuleLoader__.load({
              resize, fullscreen switch, history paging) replaces this anchor
              node, and the replacement instance must be able to re-align. */
           store.markRevealHandled(reveal.nonce);
-          return revealIntoView(ref.current, { kind: reveal.kind, quote: reveal.quote, prompt: reveal.prompt, messageId: reveal.messageId });
+          return revealIntoView(ref.current, { kind: reveal.kind, quote: reveal.quote, prompt: reveal.prompt, messageId: reveal.messageId, turn: reveal.turn });
         },
         [reveal, sessionId, messageId],
       );
@@ -1701,7 +2437,15 @@ window.__ModuleLoader__.load({
         prompt: item.prompt || '',
         quote: item.quote || '',
       });
-      ensureAnchorLoaded(item.sessionId, item.messageId || null, typeof item.seq === 'number' ? item.seq : null);
+      const itemTurn = typeof item.turn === 'number' ? item.turn : null;
+      void ensureAnchorLoaded(item.sessionId, item.messageId || null, typeof item.seq === 'number' ? item.seq : null, itemTurn).then(
+        function (mounted) {
+          store.hideToast();
+          if (mounted) return;
+          /* The action row never mounts for a very old message: align by turn. */
+          revealByTurn(itemTurn, item.kind);
+        },
+      );
     }
 
     function DeleteButton(props) {
