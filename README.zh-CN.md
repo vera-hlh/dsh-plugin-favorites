@@ -1,5 +1,9 @@
 # DSH 收藏夹
 
+[![npm version](https://img.shields.io/npm/v/dsh-plugin-favorites?style=flat-square)](https://www.npmjs.com/package/dsh-plugin-favorites)
+[![npm downloads](https://img.shields.io/npm/dw/dsh-plugin-favorites?style=flat-square)](https://www.npmjs.com/package/dsh-plugin-favorites)
+[![license](https://img.shields.io/npm/l/dsh-plugin-favorites?style=flat-square)](LICENSE)
+
 在 DeepSeek Harness 的会话里收藏一条回复、一整轮对话、一段选中的文字，或一个文件——加标签、写备注，以后一键跳回来。
 
 会话一长，你需要的那段回答就被上百次工具调用淹没了。收藏夹把这些位置收在一个面板里，按工作区分组，可按标签、类型、会话、文字检索。

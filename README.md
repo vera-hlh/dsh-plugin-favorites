@@ -1,5 +1,9 @@
 # DSH Favorites
 
+[![npm version](https://img.shields.io/npm/v/dsh-plugin-favorites?style=flat-square)](https://www.npmjs.com/package/dsh-plugin-favorites)
+[![npm downloads](https://img.shields.io/npm/dw/dsh-plugin-favorites?style=flat-square)](https://www.npmjs.com/package/dsh-plugin-favorites)
+[![license](https://img.shields.io/npm/l/dsh-plugin-favorites?style=flat-square)](LICENSE)
+
 Bookmark a reply, a whole turn, selected text, or a file inside a DeepSeek Harness session — tag it, note why it matters, and jump back to the exact spot later.
 
 Sessions get long, and the one answer you needed disappears under a hundred tool calls. Favorites keeps those spots in one panel, grouped by workspace, searchable by tag, type, session, or text.
